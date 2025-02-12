@@ -6,6 +6,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 from google.oauth2 import service_account
 from openpyxl import Workbook
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -162,7 +163,24 @@ def update_existing_file(file_path, file_id):
     
     print(f"Fichier mis à jour : {file_name} (ID: {updated_file.get('id')})")
 
+# Ajout après les configurations
+API_KEY = os.environ.get("API_KEY")
+
+def require_api_key(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get('X-API-Key')
+        if not auth_header or auth_header != API_KEY:
+            return jsonify({
+                "success": False,
+                "message": "Accès non autorisé"
+            }), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Modification de la route
 @app.route('/trigger-update', methods=['POST'])
+@require_api_key
 def trigger_update():
     try:
         print("🔍 Démarrage du processus de mise à jour...")
