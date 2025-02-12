@@ -170,6 +170,8 @@ def require_api_key(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         auth_header = request.headers.get('X-API-Key')
+        print(f"Received API Key: {auth_header}")
+        print(f"Expected API Key: {API_KEY}")
         if not auth_header or auth_header != API_KEY:
             return jsonify({
                 "success": False,
