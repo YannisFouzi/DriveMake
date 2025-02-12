@@ -23,7 +23,7 @@ credentials_info = {
     "type": os.environ.get("GOOGLE_TYPE"),
     "project_id": os.environ.get("GOOGLE_PROJECT_ID"),
     "private_key_id": os.environ.get("GOOGLE_PRIVATE_KEY_ID"),
-    "private_key": os.environ.get("GOOGLE_PRIVATE_KEY", "").replace('\\\\n', '\n'),  # Double backslash
+    "private_key": os.environ.get("GOOGLE_PRIVATE_KEY", "").strip('"').replace('\\\\n', '\n'),  # Supprime les guillemets et gère les \n
     "client_email": os.environ.get("GOOGLE_CLIENT_EMAIL"),
     "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
     "auth_uri": os.environ.get("GOOGLE_AUTH_URI"),
@@ -34,13 +34,15 @@ credentials_info = {
 }
 
 # Ajout de logs pour debug
-print("Credentials info:", {k: v[:10] + '...' if k == 'private_key' and v else v for k, v in credentials_info.items()})
+print("Private key starts with:", credentials_info["private_key"][:50])
+print("Private key ends with:", credentials_info["private_key"][-50:])
 
 try:
     creds = service_account.Credentials.from_service_account_info(credentials_info, scopes=SCOPES)
     drive_service = build("drive", "v3", credentials=creds)
 except Exception as e:
     print(f"Error initializing credentials: {str(e)}")
+    print(f"Private key length: {len(credentials_info['private_key'])}")
     raise
 
 # === FONCTIONS UTILITAIRES ===
