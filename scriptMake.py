@@ -144,10 +144,23 @@ def merge_data(old_file, new_file):
 
 def update_existing_file(file_path, file_id):
     """ Remplace le fichier existant sur Google Drive """
-    media = MediaFileUpload(file_path, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", resumable=True)
-    file_metadata = {"name": file_path}
-    updated_file = drive_service.files().update(fileId=file_id, body=file_metadata, media_body=media).execute()
-    print(f"Fichier mis à jour : {file_path} (ID: {updated_file.get('id')})")
+    # Utiliser seulement le nom du fichier, pas le chemin complet
+    file_name = os.path.basename(file_path)
+    
+    media = MediaFileUpload(file_path, 
+                          mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+                          resumable=True)
+    
+    # Garder le même nom de fichier
+    file_metadata = {"name": file_name}
+    
+    updated_file = drive_service.files().update(
+        fileId=file_id, 
+        body=file_metadata, 
+        media_body=media
+    ).execute()
+    
+    print(f"Fichier mis à jour : {file_name} (ID: {updated_file.get('id')})")
 
 @app.route('/trigger-update', methods=['POST'])
 def trigger_update():
