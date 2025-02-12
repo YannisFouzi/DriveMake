@@ -82,6 +82,9 @@ def get_latest_file(folder_id):
 
 def download_file(file_id, file_name, mime_type):
     """ Télécharge un fichier depuis Google Drive, en exportant s'il s'agit d'un Google Sheets """
+    # Utiliser le répertoire /tmp pour les fichiers temporaires
+    file_path = os.path.join('/tmp', file_name)
+    
     if mime_type == "application/vnd.google-apps.spreadsheet":
         request = drive_service.files().export_media(fileId=file_id, mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
@@ -93,9 +96,10 @@ def download_file(file_id, file_name, mime_type):
     while not done:
         status, done = downloader.next_chunk()
     fh.seek(0)
-    with open(file_name, "wb") as f:
+    with open(file_path, "wb") as f:
         f.write(fh.read())
-    print(f"Téléchargé : {file_name}")
+    print(f"Téléchargé : {file_path}")
+    return file_path  # Retourner le chemin complet
 
 def detect_email_column(df):
     """ Détecte la colonne contenant les emails """
@@ -160,12 +164,13 @@ def trigger_update():
                 "message": "Fichiers non trouvés dans les dossiers spécifiés"
             }), 404
 
-        old_file_path = old_file_info["name"]
-        new_file_path = new_file_info["name"]
+        # Utiliser des chemins complets avec /tmp
+        old_file_path = os.path.join('/tmp', old_file_info["name"])
+        new_file_path = os.path.join('/tmp', new_file_info["name"])
 
         # Téléchargement des fichiers
-        download_file(old_file_info["id"], old_file_path, old_file_info["mimeType"])
-        download_file(new_file_info["id"], new_file_path, new_file_info["mimeType"])
+        old_file_path = download_file(old_file_info["id"], old_file_info["name"], old_file_info["mimeType"])
+        new_file_path = download_file(new_file_info["id"], new_file_info["name"], new_file_info["mimeType"])
 
         # Fusion des données
         print("🔄 Fusion des fichiers...")
@@ -176,8 +181,11 @@ def trigger_update():
         update_existing_file(updated_file, old_file_info["id"])
 
         # Nettoyage des fichiers temporaires
-        os.remove(old_file_path)
-        os.remove(new_file_path)
+        try:
+            os.remove(old_file_path)
+            os.remove(new_file_path)
+        except Exception as e:
+            print(f"Erreur lors du nettoyage des fichiers : {e}")
 
         return jsonify({
             "success": True,
@@ -185,6 +193,7 @@ def trigger_update():
         })
 
     except Exception as e:
+        print(f"Erreur détaillée : {str(e)}")
         return jsonify({
             "success": False,
             "message": f"Erreur lors de la mise à jour: {str(e)}"
