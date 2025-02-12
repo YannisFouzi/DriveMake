@@ -17,7 +17,22 @@ FOLDER_TEMP = os.environ.get("FOLDER_TEMP", "1LWfFq9sD59raMuXddIgsFKm5cjdP3Gcy")
 
 # === AUTHENTIFICATION À GOOGLE DRIVE ===
 SCOPES = ["https://www.googleapis.com/auth/drive"]
-creds = service_account.Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
+# Modification pour utiliser les credentials depuis les variables d'environnement
+credentials_info = {
+    "type": os.environ.get("GOOGLE_TYPE"),
+    "project_id": os.environ.get("GOOGLE_PROJECT_ID"),
+    "private_key_id": os.environ.get("GOOGLE_PRIVATE_KEY_ID"),
+    "private_key": os.environ.get("GOOGLE_PRIVATE_KEY").replace('\\n', '\n'),
+    "client_email": os.environ.get("GOOGLE_CLIENT_EMAIL"),
+    "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+    "auth_uri": os.environ.get("GOOGLE_AUTH_URI"),
+    "token_uri": os.environ.get("GOOGLE_TOKEN_URI"),
+    "auth_provider_x509_cert_url": os.environ.get("GOOGLE_AUTH_PROVIDER_X509_CERT_URL"),
+    "client_x509_cert_url": os.environ.get("GOOGLE_CLIENT_X509_CERT_URL"),
+    "universe_domain": os.environ.get("GOOGLE_UNIVERSE_DOMAIN")
+}
+
+creds = service_account.Credentials.from_service_account_info(credentials_info, scopes=SCOPES)
 drive_service = build("drive", "v3", credentials=creds)
 
 # === FONCTIONS UTILITAIRES ===
