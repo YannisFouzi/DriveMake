@@ -19,11 +19,21 @@ FOLDER_TEMP = os.environ.get("FOLDER_TEMP", "1LWfFq9sD59raMuXddIgsFKm5cjdP3Gcy")
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 # Modification pour mieux gérer la clé privée
+def clean_private_key(key):
+    """Nettoie et formate correctement la clé privée"""
+    key = key.replace('\\n', '\n').replace('\\\\n', '\n')
+    key = key.strip().strip('"\'')
+    if not key.startswith('-----BEGIN PRIVATE KEY-----'):
+        key = '-----BEGIN PRIVATE KEY-----\n' + key
+    if not key.endswith('-----END PRIVATE KEY-----'):
+        key = key + '\n-----END PRIVATE KEY-----'
+    return key
+
 credentials_info = {
     "type": os.environ.get("GOOGLE_TYPE"),
     "project_id": os.environ.get("GOOGLE_PROJECT_ID"),
     "private_key_id": os.environ.get("GOOGLE_PRIVATE_KEY_ID"),
-    "private_key": os.environ.get("GOOGLE_PRIVATE_KEY", "").strip('"').replace('\\\\n', '\n'),  # Supprime les guillemets et gère les \n
+    "private_key": clean_private_key(os.environ.get("GOOGLE_PRIVATE_KEY", "")),
     "client_email": os.environ.get("GOOGLE_CLIENT_EMAIL"),
     "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
     "auth_uri": os.environ.get("GOOGLE_AUTH_URI"),
@@ -34,15 +44,24 @@ credentials_info = {
 }
 
 # Ajout de logs pour debug
-print("Private key starts with:", credentials_info["private_key"][:50])
-print("Private key ends with:", credentials_info["private_key"][-50:])
+print("=== DEBUG INFO ===")
+print("Private key format check:")
+print("Starts with correct header:", credentials_info["private_key"].startswith('-----BEGIN PRIVATE KEY-----'))
+print("Ends with correct footer:", credentials_info["private_key"].endswith('-----END PRIVATE KEY-----'))
+print("Contains newlines:", '\n' in credentials_info["private_key"])
+print("Key length:", len(credentials_info["private_key"]))
+print("First 50 chars:", credentials_info["private_key"][:50])
+print("Last 50 chars:", credentials_info["private_key"][-50:])
+print("================")
 
 try:
     creds = service_account.Credentials.from_service_account_info(credentials_info, scopes=SCOPES)
     drive_service = build("drive", "v3", credentials=creds)
 except Exception as e:
-    print(f"Error initializing credentials: {str(e)}")
-    print(f"Private key length: {len(credentials_info['private_key'])}")
+    print("=== ERROR DETAILS ===")
+    print(f"Error type: {type(e)}")
+    print(f"Error message: {str(e)}")
+    print("===================")
     raise
 
 # === FONCTIONS UTILITAIRES ===
