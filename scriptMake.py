@@ -17,12 +17,13 @@ FOLDER_TEMP = os.environ.get("FOLDER_TEMP", "1LWfFq9sD59raMuXddIgsFKm5cjdP3Gcy")
 
 # === AUTHENTIFICATION À GOOGLE DRIVE ===
 SCOPES = ["https://www.googleapis.com/auth/drive"]
-# Modification pour utiliser les credentials depuis les variables d'environnement
+
+# Modification pour mieux gérer la clé privée
 credentials_info = {
     "type": os.environ.get("GOOGLE_TYPE"),
     "project_id": os.environ.get("GOOGLE_PROJECT_ID"),
     "private_key_id": os.environ.get("GOOGLE_PRIVATE_KEY_ID"),
-    "private_key": os.environ.get("GOOGLE_PRIVATE_KEY").replace('\\n', '\n'),
+    "private_key": os.environ.get("GOOGLE_PRIVATE_KEY", "").replace('\\\\n', '\n'),  # Double backslash
     "client_email": os.environ.get("GOOGLE_CLIENT_EMAIL"),
     "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
     "auth_uri": os.environ.get("GOOGLE_AUTH_URI"),
@@ -32,8 +33,15 @@ credentials_info = {
     "universe_domain": os.environ.get("GOOGLE_UNIVERSE_DOMAIN")
 }
 
-creds = service_account.Credentials.from_service_account_info(credentials_info, scopes=SCOPES)
-drive_service = build("drive", "v3", credentials=creds)
+# Ajout de logs pour debug
+print("Credentials info:", {k: v[:10] + '...' if k == 'private_key' and v else v for k, v in credentials_info.items()})
+
+try:
+    creds = service_account.Credentials.from_service_account_info(credentials_info, scopes=SCOPES)
+    drive_service = build("drive", "v3", credentials=creds)
+except Exception as e:
+    print(f"Error initializing credentials: {str(e)}")
+    raise
 
 # === FONCTIONS UTILITAIRES ===
 
