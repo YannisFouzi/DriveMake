@@ -123,28 +123,34 @@ def merge_data(old_file, new_file):
     if email_col_old != email_col_new:
         raise ValueError("La colonne email ne correspond pas entre les fichiers")
 
-    # Vérifier si un email existe et mettre à jour les données sans toucher à la structure
+    # Pour tracker les modifications
+    modified_cells = []
+    new_rows = []
+    
+    # Vérifier si un email existe et mettre à jour les données
     for index, new_row in df_new.iterrows():
         match_index = df_old[df_old[email_col_old] == new_row[email_col_new]].index
         if not match_index.empty:
-            for col in df_new.columns:
-                if pd.notna(new_row[col]):
+            # Pour les lignes existantes
+            for col_idx, col in enumerate(df_new.columns):
+                if pd.notna(new_row[col]) and df_old.iloc[match_index[0]][col] != new_row[col]:
                     df_old.loc[match_index, col] = new_row[col]
+                    modified_cells.append((match_index[0], col_idx))
         else:
+            # Pour les nouvelles lignes
+            new_row_idx = len(df_old)
             df_old = pd.concat([df_old, pd.DataFrame([new_row])], ignore_index=True)
+            new_rows.append(new_row_idx)
     
-    # Conversion en liste de listes pour éviter le formatage automatique
+    # Sauvegarde comme avant
     data = [df_old.columns.tolist()] + df_old.values.tolist()
-    
-    # Utilisation directe d'openpyxl pour sauvegarder sans formatage
     wb = Workbook()
     ws = wb.active
-    
     for row in data:
         ws.append(row)
-    
     wb.save(old_file)
-    return old_file
+    
+    return old_file, modified_cells, new_rows
 
 def update_existing_file(file_path, file_id, modified_cells=None, new_rows=None):
     """Remplace le fichier existant sur Google Drive et applique le formatage"""
@@ -259,11 +265,11 @@ def trigger_update():
 
         # Fusion des données
         print("🔄 Fusion des fichiers...")
-        updated_file = merge_data(old_file_path, new_file_path)
+        updated_file, modified_cells, new_rows = merge_data(old_file_path, new_file_path)
 
         # Mise à jour sur Google Drive
         print("📤 Mise à jour du fichier sur Google Drive...")
-        update_existing_file(updated_file, old_file_info["id"])
+        update_existing_file(updated_file, old_file_info["id"], modified_cells, new_rows)
 
         # Nettoyage des fichiers temporaires
         try:
