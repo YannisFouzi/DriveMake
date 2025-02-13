@@ -7,6 +7,7 @@ from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 from google.oauth2 import service_account
 from openpyxl import Workbook
 from functools import wraps
+import time
 
 app = Flask(__name__)
 
@@ -159,12 +160,21 @@ def update_existing_file(file_path, file_id, modified_cells=None, new_rows=None)
                           mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
                           resumable=True)
     
-    file_metadata = {"name": os.path.basename(file_path)}
+    file_metadata = {
+        "name": os.path.basename(file_path),
+        "mimeType": "application/vnd.google-apps.spreadsheet"  # Convertir en Google Sheets
+    }
+    
+    # Mise à jour et conversion en Google Sheets
     updated_file = drive_service.files().update(
-        fileId=file_id, 
-        body=file_metadata, 
-        media_body=media
+        fileId=file_id,
+        body=file_metadata,
+        media_body=media,
+        fields='id'
     ).execute()
+
+    # Attendre un peu que la conversion soit terminée
+    time.sleep(2)
 
     # Création du service Sheets
     sheets_service = build('sheets', 'v4', credentials=creds)
@@ -174,11 +184,12 @@ def update_existing_file(file_path, file_id, modified_cells=None, new_rows=None)
     
     # Pour les cellules modifiées (bleu)
     if modified_cells:
+        print(f"Coloration des cellules modifiées : {modified_cells}")
         for row, col in modified_cells:
             requests.append({
                 "repeatCell": {
                     "range": {
-                        "sheetId": 0,
+                        "sheetId": 0,  # Première feuille
                         "startRowIndex": row,
                         "endRowIndex": row + 1,
                         "startColumnIndex": col,
@@ -195,13 +206,16 @@ def update_existing_file(file_path, file_id, modified_cells=None, new_rows=None)
     
     # Pour les nouvelles lignes (rouge)
     if new_rows:
+        print(f"Coloration des nouvelles lignes : {new_rows}")
         for row in new_rows:
             requests.append({
                 "repeatCell": {
                     "range": {
-                        "sheetId": 0,
+                        "sheetId": 0,  # Première feuille
                         "startRowIndex": row,
-                        "endRowIndex": row + 1
+                        "endRowIndex": row + 1,
+                        "startColumnIndex": 0,
+                        "endColumnIndex": 999  # Toute la ligne
                     },
                     "cell": {
                         "userEnteredFormat": {
@@ -214,12 +228,17 @@ def update_existing_file(file_path, file_id, modified_cells=None, new_rows=None)
     
     # Application du formatage
     if requests:
-        sheets_service.spreadsheets().batchUpdate(
-            spreadsheetId=file_id,
-            body={"requests": requests}
-        ).execute()
+        try:
+            print("Application du formatage...")
+            sheets_service.spreadsheets().batchUpdate(
+                spreadsheetId=file_id,
+                body={"requests": requests}
+            ).execute()
+            print("Formatage appliqué avec succès")
+        except Exception as e:
+            print(f"Erreur lors du formatage : {str(e)}")
     
-    print(f"Fichier mis à jour avec formatage : {os.path.basename(file_path)} (ID: {updated_file.get('id')})")
+    print(f"Fichier mis à jour avec formatage : {os.path.basename(file_path)} (ID: {file_id})")
 
 # Ajout après les configurations
 API_KEY = os.environ.get("API_KEY")
