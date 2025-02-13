@@ -7,7 +7,6 @@ from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 from google.oauth2 import service_account
 from openpyxl import Workbook
 from functools import wraps
-from openpyxl.styles import PatternFill, Font
 
 app = Flask(__name__)
 
@@ -121,49 +120,25 @@ def merge_data(old_file, new_file):
     if email_col_old != email_col_new:
         raise ValueError("La colonne email ne correspond pas entre les fichiers")
 
-    # Garder trace des cellules modifiées et des nouvelles lignes
-    modified_cells = []  # Liste de tuples (row, col) pour les cellules modifiées
-    new_rows = []  # Liste des indices des nouvelles lignes
-
-    # Vérifier si un email existe et mettre à jour les données
+    # Vérifier si un email existe et mettre à jour les données sans toucher à la structure
     for index, new_row in df_new.iterrows():
         match_index = df_old[df_old[email_col_old] == new_row[email_col_new]].index
         if not match_index.empty:
-            # Mise à jour des cellules existantes
             for col in df_new.columns:
-                if pd.notna(new_row[col]) and new_row[col] != df_old.loc[match_index.values[0], col]:
+                if pd.notna(new_row[col]):
                     df_old.loc[match_index, col] = new_row[col]
-                    modified_cells.append((match_index.values[0] + 2, df_old.columns.get_loc(col) + 1))
         else:
-            # Ajout de nouvelle ligne
             df_old = pd.concat([df_old, pd.DataFrame([new_row])], ignore_index=True)
-            new_rows.append(df_old.shape[0])
-
-    # Conversion en liste de listes
+    
+    # Conversion en liste de listes pour éviter le formatage automatique
     data = [df_old.columns.tolist()] + df_old.values.tolist()
     
-    # Création du workbook avec formatage
+    # Utilisation directe d'openpyxl pour sauvegarder sans formatage
     wb = Workbook()
     ws = wb.active
     
-    # Définition des styles
-    blue_fill = PatternFill(start_color='ADD8E6', end_color='ADD8E6', fill_type='solid')  # Bleu clair
-    red_fill = PatternFill(start_color='FFB6C1', end_color='FFB6C1', fill_type='solid')   # Rouge clair
-    
-    # Remplissage des données
-    for row_idx, row in enumerate(data, 1):
+    for row in data:
         ws.append(row)
-        
-        # Appliquer le formatage rouge pour les nouvelles lignes
-        if row_idx in new_rows:
-            for col in range(1, len(row) + 1):
-                cell = ws.cell(row=row_idx, column=col)
-                cell.fill = red_fill
-    
-    # Appliquer le formatage bleu pour les cellules modifiées
-    for row, col in modified_cells:
-        cell = ws.cell(row=row, column=col)
-        cell.fill = blue_fill
     
     wb.save(old_file)
     return old_file
