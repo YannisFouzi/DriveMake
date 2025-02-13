@@ -17,7 +17,10 @@ FOLDER_SMC = os.environ.get("FOLDER_SMC", "1Qg_KdjEJirl0grOeDJt3dK9w3eq6fj9d")
 FOLDER_TEMP = os.environ.get("FOLDER_TEMP", "1LWfFq9sD59raMuXddIgsFKm5cjdP3Gcy")
 
 # === AUTHENTIFICATION À GOOGLE DRIVE ===
-SCOPES = ["https://www.googleapis.com/auth/drive"]
+SCOPES = [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/spreadsheets"
+]
 
 # Modification pour mieux gérer la clé privée
 def clean_private_key(key):
@@ -143,25 +146,74 @@ def merge_data(old_file, new_file):
     wb.save(old_file)
     return old_file
 
-def update_existing_file(file_path, file_id):
-    """ Remplace le fichier existant sur Google Drive """
-    # Utiliser seulement le nom du fichier, pas le chemin complet
-    file_name = os.path.basename(file_path)
-    
+def update_existing_file(file_path, file_id, modified_cells=None, new_rows=None):
+    """Remplace le fichier existant sur Google Drive et applique le formatage"""
+    # Mise à jour du contenu comme avant
     media = MediaFileUpload(file_path, 
                           mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
                           resumable=True)
     
-    # Garder le même nom de fichier
-    file_metadata = {"name": file_name}
-    
+    file_metadata = {"name": os.path.basename(file_path)}
     updated_file = drive_service.files().update(
         fileId=file_id, 
         body=file_metadata, 
         media_body=media
     ).execute()
+
+    # Création du service Sheets
+    sheets_service = build('sheets', 'v4', credentials=creds)
     
-    print(f"Fichier mis à jour : {file_name} (ID: {updated_file.get('id')})")
+    # Préparation des requêtes de formatage
+    requests = []
+    
+    # Pour les cellules modifiées (bleu)
+    if modified_cells:
+        for row, col in modified_cells:
+            requests.append({
+                "repeatCell": {
+                    "range": {
+                        "sheetId": 0,
+                        "startRowIndex": row,
+                        "endRowIndex": row + 1,
+                        "startColumnIndex": col,
+                        "endColumnIndex": col + 1
+                    },
+                    "cell": {
+                        "userEnteredFormat": {
+                            "backgroundColor": {"red": 0.8, "green": 0.9, "blue": 1}
+                        }
+                    },
+                    "fields": "userEnteredFormat.backgroundColor"
+                }
+            })
+    
+    # Pour les nouvelles lignes (rouge)
+    if new_rows:
+        for row in new_rows:
+            requests.append({
+                "repeatCell": {
+                    "range": {
+                        "sheetId": 0,
+                        "startRowIndex": row,
+                        "endRowIndex": row + 1
+                    },
+                    "cell": {
+                        "userEnteredFormat": {
+                            "backgroundColor": {"red": 1, "green": 0.8, "blue": 0.8}
+                        }
+                    },
+                    "fields": "userEnteredFormat.backgroundColor"
+                }
+            })
+    
+    # Application du formatage
+    if requests:
+        sheets_service.spreadsheets().batchUpdate(
+            spreadsheetId=file_id,
+            body={"requests": requests}
+        ).execute()
+    
+    print(f"Fichier mis à jour avec formatage : {os.path.basename(file_path)} (ID: {updated_file.get('id')})")
 
 # Ajout après les configurations
 API_KEY = os.environ.get("API_KEY")
